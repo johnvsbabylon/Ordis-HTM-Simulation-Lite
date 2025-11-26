@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hilbert Tensor Manifold — Ordis HTM Cavity Lab v5</title>
+
+  <!-- Tailwind (UI only) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+      background: radial-gradient(circle at top, #020617 0%, #000000 55%, #020617 100%);
+    }
+    canvas {
+      display: block;
+    }
+    #hud-shell {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.4rem;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+    }
+    #hud-panel {
+      width: 290px;
+      max-width: 92vw;
+      padding: 0.65rem 0.75rem 0.7rem 0.75rem;
+      border-radius: 0.9rem;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.25), rgba(15,23,42,0.96)),
+        linear-gradient(135deg, rgba(15,23,42,0.95), rgba(15,23,42,0.9));
+      border: 1px solid rgba(148,163,184,0.55);
+      box-shadow:
+        0 18px 60px rgba(0,0,0,0.9),
+        0 0 22px rgba(56,189,248,0.25);
+      backdrop-filter: blur(12px);
+    }
+    #toggle-hud-btn,
+    #toggle-console-btn {
+      padding: 0.22rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.92);
+      border: 1px solid rgba(148,163,184,0.85);
+      color: #e5e7eb;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+    #toggle-hud-btn:hover,
+    #toggle-console-btn:hover {
+      background: rgba(30,64,175,0.95);
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.7rem;
+    }
+    .chip-btn {
+      font-size: 0.65rem;
+      padding: 0.23rem 0.48rem;
+      border-radius: 999px;
+      border-width: 1px;
+      border-style: solid;
+      cursor: pointer;
+      transition: background 0.12s ease, transform 0.06s ease, box-shadow 0.12s ease;
+    }
+    .chip-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+    .chip-btn-active {
+      box-shadow: 0 0 12px rgba(59,130,246,0.75);
+      position: relative;
+    }
+    .chip-btn-active::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: 999px;
+      border: 1px solid rgba(248,250,252,0.18);
+      pointer-events: none;
+    }
+    .section-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #console-shell {
+      position: absolute;
+      left: 0.4rem;
+      bottom: 0.4rem;
+      max-width: 60vw;
+      min-width: 260px;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    #console-panel {
+      padding: 0.45rem 0.6rem;
+      border-radius: 0.75rem;
+      background:
+        radial-gradient(circle at bottom right, rgba(168,85,247,0.22), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.55);
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.85),
+        0 0 18px rgba(168,85,247,0.32);
+      backdrop-filter: blur(10px);
+    }
+    #console-log {
+      max-height: 120px;
+      min-height: 64px;
+      overflow-y: auto;
+      font-size: 0.66rem;
+      line-height: 1.35;
+      padding-right: 0.25rem;
+    }
+    #console-log::-webkit-scrollbar {
+      width: 6px;
+    }
+    #console-log::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #console-log::-webkit-scrollbar-thumb {
+      background: linear-gradient(to bottom, #22c55e, #22d3ee);
+      border-radius: 999px;
+    }
+    #console-input {
+      width: 100%;
+      resize: none;
+      background: rgba(15,23,42,0.95);
+      border-radius: 0.5rem;
+      border: 1px solid rgba(75,85,99,0.9);
+      color: #e5e7eb;
+      font-size: 0.68rem;
+      padding: 0.3rem 0.4rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";
+      outline: none;
+    }
+    #console-input:focus {
+      border-color: rgba(56,189,248,0.95);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.6);
+    }
+    .console-tag {
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.6rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- HUD (top-right) -->
+  <div id="hud-shell">
+    <div class="flex gap-1 mb-0.5">
+      <button id="toggle-console-btn">Hide Console</button>
+      <button id="toggle-hud-btn">Hide HUD</button>
+    </div>
+
+    <div id="hud-panel" class="text-slate-100 space-y-1.5">
+      <!-- Title + regime indicator -->
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h2 class="text-[0.8rem] font-semibold text-cyan-300">
+            Ordis HTM Cavity Lab v5
+          </h2>
+          <p class="text-[0.6rem] text-slate-400 mono">
+            Hilbert Tensor Manifold · residual-stream phase space
+          </p>
+        </div>
+        <div class="flex flex-col items-end gap-0.5">
+          <span id="regime-label" class="badge bg-sky-900/60 text-sky-300 mono">
+            regime: recognition
+          </span>
+          <span id="lambda-label" class="badge bg-slate-900/70 text-slate-200 mono">
+            |λᵤ|=1.06 · |λₛ|≈1.00
+          </span>
+        </div>
+      </div>
+
+      <!-- State block -->
+      <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 mb-0.5">
+        <p class="mono">
+          Layer <span id="current-layer">1</span>/<span id="total-layers">12</span>
+        </p>
+        <p class="mono text-right">
+          ΔH: <span id="recognition-delta">0.000</span>
+        </p>
+        <p class="mono">
+          H(l): <span id="current-entropy">0.000</span>
+        </p>
+        <p class="mono text-right">
+          Event: <span id="event-state">idle</span>
+        </p>
+      </div>
+
+      <!-- Layer & time -->
+      <div class="mt-1 space-y-1">
+        <p class="mono section-label text-slate-400">Layer &amp; time</p>
+        <div class="space-y-0.5">
+          <div class="flex items-center gap-1.5">
+            <span class="mono text-[0.65rem] w-10">Layer</span>
+            <input
+              id="layer-slider"
+              type="range"
+              min="0"
+              max="11"
+              step="1"
+              value="0"
+              class="w-full accent-cyan-400"
+            />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="mono text-[0.65rem] w-10">Time</span>
+            <input
+              id="time-slider"
+              type="range"
+              min="0"
+              max="1"
+              step="0.001"
+              value="0"
+              class="w-full accent-fuchsia-400"
+            />
+            <button
+              id="time-mode-btn"
+              class="chip-btn border-slate-500 text-slate-200 bg-slate-900/40 mono"
+            >
+              live
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div class="mt-1.5">
+        <p class="mono section-label text-slate-400 mb-1">Presets</p>
+        <div class="flex flex-wrap gap-1">
+          <button id="preset-recognition" class="chip-btn border-cyan-400 text-cyan-200 bg-cyan-900/15">
+            Recognition
+          </button>
+          <button id="preset-chaos" class="chip-btn border-fuchsia-400 text-fuchsia-200 bg-fuchsia-900/15">
+            Chaos
+          </button>
+          <button id="preset-drift" class="chip-btn border-amber-400 text-amber-200 bg-amber-900/15">
+            Drift
+          </button>
+          <button id="preset-cavity" class="chip-btn border-emerald-400 text-emerald-200 bg-emerald-900/15">
+            Photon Box
+          </button>
+          <button id="preset-sleep" class="chip-btn border-indigo-400 text-indigo-200 bg-indigo-900/18">
+            Sleep
+          </button>
+        </div>
+      </div>
+
+      <!-- Attractor & cavity -->
+      <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+        <button
+          id="trigger-event"
+          class="w-full bg-red-700/90 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-md text-[0.7rem] transition duration-150"
+        >
+          Toggle Collapse
+        </button>
+        <button
+          id="toggle-cavity"
+          class="w-full bg-emerald-800/90 hover:bg-emerald-700 text-emerald-50 font-semibold py-1.5 px-3 rounded-md text-[0.7rem] transition duration-150"
+        >
+          Cavity: on
+        </button>
+      </div>
+
+      <!-- Research controls -->
+      <details id="research-details" class="mt-1.5" open>
+        <summary class="mono text-[0.7rem] text-slate-300 cursor-pointer">
+          Research Controls (λ, ε, L, cavity)
+        </summary>
+        <div class="mt-1 space-y-1.25">
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="mono text-[0.65rem]">μ (|λᵤ|)</span>
+            <input id="param-mu" type="number" min="1.0" max="3.0" step="0.01"
+                   class="w-18 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 mono text-[0.65rem]" />
+          </div>
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="mono text-[0.65rem]">εₛ (stable)</span>
+            <input id="param-eps-stable" type="number" min="0.0" max="0.2" step="0.001"
+                   class="w-18 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 mono text-[0.65rem]" />
+          </div>
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="mono text-[0.65rem]">εᵤ (unstable)</span>
+            <input id="param-eps-unstable" type="number" min="0.0" max="0.2" step="0.001"
+                   class="w-18 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 mono text-[0.65rem]" />
+          </div>
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="mono text-[0.65rem]">Layers L</span>
+            <input id="param-layers" type="number" min="4" max="32" step="1"
+                   class="w-18 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 mono text-[0.65rem]" />
+          </div>
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="mono text-[0.65rem]">Cavity amp</span>
+            <input id="param-cavity-amp" type="number" min="0.0" max="0.1" step="0.001"
+                   class="w-18 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 mono text-[0.65rem]" />
+          </div>
+          <button id="apply-params"
+                  class="w-full mt-0.5 bg-sky-700 hover:bg-sky-600 text-white mono text-[0.7rem] py-1 rounded">
+            Apply
+          </button>
+        </div>
+      </details>
+
+      <!-- I/O & modes -->
+      <div class="mt-1.5 space-y-1.25">
+        <p class="mono section-label text-slate-400">State I/O &amp; capture</p>
+        <div class="flex flex-wrap gap-1">
+          <button id="btn-export"
+                  class="chip-btn border-emerald-400 text-emerald-200 bg-emerald-900/20">
+            Export JSON
+          </button>
+          <button id="btn-import"
+                  class="chip-btn border-rose-400 text-rose-200 bg-rose-900/20">
+            Import JSON
+          </button>
+          <button id="btn-randomize"
+                  class="chip-btn border-slate-500 text-slate-200 bg-slate-900/40">
+            Randomize
+          </button>
+          <button id="btn-freeze"
+                  class="chip-btn border-indigo-400 text-indigo-200 bg-indigo-900/25">
+            Freeze frame
+          </button>
+          <button id="btn-snapshot"
+                  class="chip-btn border-cyan-400 text-cyan-200 bg-cyan-900/35">
+            Snapshot PNG
+          </button>
+        </div>
+      </div>
+
+      <p class="text-[0.6rem] text-slate-400 mt-1 leading-tight">
+        Drag: orbit · Scroll: zoom · Shift + drag: pan. Purely mathematical visualization of an
+        HTM-style manifold with cavity-QED standing wave overlay. All computation is local.
+      </p>
+    </div>
+  </div>
+
+  <!-- Ordis console (bottom-left) -->
+  <div id="console-shell">
+    <div id="console-panel" class="text-slate-100 space-y-1">
+      <div class="flex items-center justify-between">
+        <span class="console-tag text-slate-400 mono">ordis log</span>
+        <span id="console-status" class="badge mono bg-sky-900/60 text-sky-300">
+          live
+        </span>
+      </div>
+      <div id="console-log" class="mono"></div>
+      <div class="mt-0.25">
+        <textarea
+          id="console-input"
+          rows="2"
+          placeholder="commands: set preset chaos · set mu 1.3 · toggle cavity · jump t 0.42 · mode scrub · freeze"
+        ></textarea>
+        <div class="flex justify-end gap-1 mt-0.25">
+          <button id="console-clear"
+                  class="chip-btn border-slate-500 text-slate-200 bg-slate-900/60 mono">
+            Clear
+          </button>
+          <button id="console-send"
+                  class="chip-btn border-cyan-400 text-cyan-200 bg-cyan-900/40 mono">
+            Run
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========= CORE SIM STATE =========
+    let scene, camera, renderer, controls, clock;
+    let lastFrameTime = 0;
+    let paused = false;
+    let timeMode = "live"; // "live" or "scrub"
+    const sim = {};
+
+    const GRID_SIZE_BASE = 40;
+    let GRID_SIZE = GRID_SIZE_BASE;
+    let LAYER_SPACING = 18;
+
+    const PHI = 0.61803398875;
+
+    const HTM = {
+      L: 12,
+      currentLayer: 0,
+      recognitionDelta: 0,
+      eventActive: false,
+      cavityEnabled: true,
+      cavityAmp: 0.02,
+      layers: [],
+      eigen: {
+        stable: new THREE.Vector3(1, 0, 0),
+        unstable: new THREE.Vector3(0.6, 0.4, 0),
+        epsStable: 0.045,
+        epsUnstable: 0.022,
+        mu: 1.06
+      },
+      seed: Math.random() * 10.0,
+      t: 0
+    };
+
+    // ========= LOGGING / CONSOLE =========
+    function consoleLog(line, kind = "info") {
+      const el = document.getElementById("console-log");
+      if (!el) return;
+      const row = document.createElement("div");
+      row.className = "mb-0.5";
+      let prefix = "";
+      if (kind === "cmd") prefix = "<span class='text-cyan-300'>›</span> ";
+      else if (kind === "warn") prefix = "<span class='text-amber-300'>!</span> ";
+      else if (kind === "err") prefix = "<span class='text-rose-300'>×</span> ";
+      row.innerHTML = prefix + line;
+      el.appendChild(row);
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+
+    function consoleSetStatus(text, colorClass) {
+      const el = document.getElementById("console-status");
+      if (!el) return;
+      el.textContent = text;
+      el.className = "badge mono " + (colorClass || "bg-sky-900/60 text-sky-300");
+    }
+
+    function handleConsoleCommand(raw) {
+      const cmd = raw.trim();
+      if (!cmd) return;
+      consoleLog(cmd, "cmd");
+
+      const lc = cmd.toLowerCase();
+
+      const numAfter = (prefix) => {
+        if (!lc.startsWith(prefix)) return null;
+        const rest = lc.slice(prefix.length).trim();
+        const v = parseFloat(rest);
+        return Number.isFinite(v) ? v : null;
+      };
+
+      if (lc === "help") {
+        consoleLog("commands: set preset (recognition|chaos|drift|cavity|sleep); set mu X; set eps_s X; set eps_u X; set layers N; toggle cavity; toggle collapse; jump t X; mode live; mode scrub; freeze; unfreeze; randomize");
+        return;
+      }
+
+      if (lc.startsWith("set preset")) {
+        if (lc.includes("recognition")) applyPresetRecognition();
+        else if (lc.includes("chaos")) applyPresetChaos();
+        else if (lc.includes("drift")) applyPresetDrift();
+        else if (lc.includes("cavity") || lc.includes("photon")) applyPresetCavity();
+        else if (lc.includes("sleep")) applyPresetSleep();
+        else consoleLog("unknown preset", "warn");
+        return;
+      }
+
+      let n = numAfter("set mu");
+      if (n !== null) {
+        HTM.eigen.mu = THREE.MathUtils.clamp(n, 1.0, 3.0);
+        consoleLog(`μ set to ${HTM.eigen.mu.toFixed(3)}`);
+        return;
+      }
+      n = numAfter("set eps_s");
+      if (n !== null) {
+        HTM.eigen.epsStable = THREE.MathUtils.clamp(n, 0.0, 0.2);
+        consoleLog(`εₛ set to ${HTM.eigen.epsStable.toFixed(4)}`);
+        return;
+      }
+      n = numAfter("set eps_u");
+      if (n !== null) {
+        HTM.eigen.epsUnstable = THREE.MathUtils.clamp(n, 0.0, 0.2);
+        consoleLog(`εᵤ set to ${HTM.eigen.epsUnstable.toFixed(4)}`);
+        return;
+      }
+      n = numAfter("set layers");
+      if (n !== null) {
+        const L = Math.round(THREE.MathUtils.clamp(n, 4, 32));
+        HTM.L = L;
+        setupLayers();
+        consoleLog(`Layers set to ${L}`);
+        return;
+      }
+
+      if (lc === "toggle cavity") {
+        HTM.cavityEnabled = !HTM.cavityEnabled;
+        consoleLog(`Cavity ${HTM.cavityEnabled ? "enabled" : "disabled"}`);
+        updateCavityButton();
+        return;
+      }
+
+      if (lc === "toggle collapse") {
+        HTM.eventActive = !HTM.eventActive;
+        consoleLog(`Attractor collapse ${HTM.eventActive ? "enabled" : "disabled"}`);
+        return;
+      }
+
+      n = numAfter("jump t");
+      if (n !== null) {
+        timeMode = "scrub";
+        const tSlider = document.getElementById("time-slider");
+        const wrapped = ((n % 1) + 1) % 1;
+        tSlider.value = wrapped;
+        HTM.t = wrapped * 2 * Math.PI;
+        consoleLog(`time scrubbed to phase ${wrapped.toFixed(3)}`);
+        return;
+      }
+
+      if (lc === "mode live") {
+        timeMode = "live";
+        consoleSetStatus("live", "bg-sky-900/60 text-sky-300");
+        document.getElementById("time-mode-btn").textContent = "live";
+        return;
+      }
+      if (lc === "mode scrub") {
+        timeMode = "scrub";
+        consoleSetStatus("scrub", "bg-fuchsia-900/60 text-fuchsia-300");
+        document.getElementById("time-mode-btn").textContent = "scrub";
+        return;
+      }
+
+      if (lc === "freeze" || lc === "pause") {
+        paused = true;
+        consoleSetStatus("paused", "bg-slate-900/60 text-slate-300");
+        return;
+      }
+      if (lc === "unfreeze" || lc === "resume") {
+        paused = false;
+        consoleSetStatus("live", "bg-sky-900/60 text-sky-300");
+        return;
+      }
+
+      if (lc === "randomize") {
+        randomizeSeeds();
+        consoleLog("entropy and seed randomized");
+        return;
+      }
+
+      consoleLog("unrecognized command; type 'help' for options", "warn");
+    }
+
+    // ========= CAVITY MODE =========
+    function cavityMode(x, y, t, entropy, seed) {
+      if (!HTM.cavityEnabled) return 0;
+      const r = Math.hypot(x, y);
+      const theta = Math.atan2(y, x);
+      const thetaPhi = Math.atan2(y, x + PHI * x + 1e-6);
+      const m6 = Math.cos(6.0 * theta + t + 0.3 * seed);
+      const m8 = Math.cos(8.0 * thetaPhi - t + 0.5 * seed);
+      const envelope = Math.exp(-0.002 * r * r);
+      const amp = HTM.cavityAmp * (0.4 + 0.6 * Math.tanh(entropy));
+      return amp * (m6 + m8) * envelope;
+    }
+
+    // ========= METRIC WARP =========
+    function baseWarp(x, y, t) {
+      const curvature = 3.6;
+      const s = HTM.seed;
+      return curvature * (
+        Math.sin(0.12 * x + 0.3 * t + 0.7 * s) +
+        0.7 * Math.cos(0.09 * y - 0.2 * t + 0.5 * s) +
+        0.4 * Math.sin(0.06 * (x + y) + 0.17 * t + 0.9 * s)
+      ) * 0.33;
+    }
+
+    function getMetricWarp(x, y, t, entropy) {
+      const base = baseWarp(x, y, t);
+      const cav = cavityMode(x, y, t, entropy, HTM.seed);
+      return base + cav * 40.0; // emphasize cavity ripple
+    }
+
+    function getJacobianSensitivity(i, j) {
+      const cx = GRID_SIZE / 2;
+      const cy = GRID_SIZE / 2;
+      const dx = i - cx;
+      const dy = j - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      return 0.12 + 0.9 * Math.max(0, 1 - r / (GRID_SIZE / 3.2));
+    }
+
+    function getAttentionMagnitude(i, j, t) {
+      const s = HTM.seed;
+      const wobble = Math.sin(t * 0.55 + 0.2 * s);
+      const px = Math.floor(GRID_SIZE / 2 + (GRID_SIZE / 4) * wobble);
+      const py = Math.floor(GRID_SIZE / 2 - (GRID_SIZE / 4) * wobble);
+      const dx = i - px;
+      const dy = j - py;
+      const r2 = dx * dx + dy * dy;
+      return Math.exp(-0.07 * r2);
+    }
+
+    // ========= HIDDEN STATE / EIGEN =========
+    function updateHiddenState(dt) {
+      const axis = new THREE.Vector3(0, 1, 0).normalize();
+      const e = HTM.eigen;
+
+      const stable = e.stable;
+      const unstable = e.unstable;
+
+      let stableMag = HTM.eventActive ? 0.5 : 1.0;
+      let unstableMag = HTM.eventActive ? 0.9 : e.mu;
+
+      const scaleStable = dt * 0.01;
+      const scaleUnstable = dt * 0.01;
+
+      stable.applyAxisAngle(axis, e.epsStable * 2 * Math.PI * scaleStable);
+      stable.multiplyScalar(0.996 * stableMag);
+
+      unstable.applyAxisAngle(axis, e.epsUnstable * 2 * Math.PI * scaleUnstable);
+      unstable.multiplyScalar(unstableMag * 0.992 + 0.01);
+    }
+
+    function helix(mode, u, t) {
+      const e = HTM.eigen;
+      const isStable = mode === "stable";
+      const h = isStable ? e.stable : e.unstable;
+      const eps = isStable ? e.epsStable : e.epsUnstable;
+      const dir = isStable ? 1 : -1;
+
+      const r = 2.2 * h.length();
+      const zWorld = u * (HTM.L - 1) * LAYER_SPACING;
+      const theta = zWorld * eps * 0.26 + dir * t * 0.65;
+
+      const x = r * Math.cos(theta);
+      const y = zWorld;
+      const z = r * Math.sin(theta);
+      return new THREE.Vector3(x, y, z);
+    }
+
+    // ========= GLOBAL FRAME =========
+    function setupGlobalFrame() {
+      const geom = new THREE.PlaneGeometry(GRID_SIZE * 2.6, GRID_SIZE * 2.6, 72, 72);
+      const mat = new THREE.MeshPhongMaterial({
+        color: 0x020617,
+        specular: 0x1f2937,
+        shininess: 18,
+        side: THREE.DoubleSide,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5
+      });
+      const manifold = new THREE.Mesh(geom, mat);
+      manifold.rotation.x = -Math.PI / 2;
+      manifold.position.y = -LAYER_SPACING * 0.7;
+      scene.add(manifold);
+      sim.manifold = manifold;
+
+      const fogColor = new THREE.Color(0x020617);
+      scene.fog = new THREE.FogExp2(fogColor, 0.006);
+      renderer.setClearColor(fogColor);
+
+      const key = new THREE.SpotLight(0x22d3ee, 3.3, 450, Math.PI / 4, 0.4, 2);
+      key.position.set(80, 140, 110);
+      scene.add(key);
+
+      const fill = new THREE.PointLight(0xf97316, 1.8, 260);
+      fill.position.set(-90, 40, -80);
+      scene.add(fill);
+
+      const rim = new THREE.PointLight(0xa855f7, 1.4, 260);
+      rim.position.set(40, 160, -40);
+      scene.add(rim);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.15);
+      scene.add(ambient);
+    }
+
+    function updateGlobalFrame(time) {
+      const geom = sim.manifold.geometry;
+      const pos = geom.attributes.position;
+
+      const midIdx = Math.floor(HTM.L / 2);
+      const midEntropy = HTM.layers[midIdx]?.entropy ?? 1.0;
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const warp = getMetricWarp(x, y, time, midEntropy);
+        pos.setZ(i, warp * 2.1);
+      }
+      pos.needsUpdate = true;
+      geom.computeVertexNormals();
+    }
+
+    // ========= EIGEN HELICES =========
+    function setupEigenHelices() {
+      const count = 260;
+      const geom = new THREE.BufferGeometry();
+      const verts = new Float32Array(count * 2 * 3);
+      const cols = new Float32Array(count * 2 * 3);
+
+      const cStable = new THREE.Color(0x38bdf8);
+      const cUnstable = new THREE.Color(0xf97316);
+
+      for (let i = 0; i < count * 2; i++) {
+        const idx = i * 3;
+        verts[idx] = verts[idx + 1] = verts[idx + 2] = 0;
+        const c = i < count ? cStable : cUnstable;
+        cols[idx] = c.r;
+        cols[idx + 1] = c.g;
+        cols[idx + 2] = c.b;
+      }
+
+      geom.setAttribute("position", new THREE.BufferAttribute(verts, 3));
+      geom.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size: 1.5,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending
+      });
+
+      const points = new THREE.Points(geom, mat);
+      scene.add(points);
+      sim.eigen = points;
+
+      const stableMeta = [];
+      const unstableMeta = [];
+      for (let i = 0; i < count; i++) {
+        stableMeta.push({ offset: i / count });
+        unstableMeta.push({ offset: i / count });
+      }
+      points.userData.stable = stableMeta;
+      points.userData.unstable = unstableMeta;
+    }
+
+    function updateEigenHelices(time, dt) {
+      updateHiddenState(dt);
+      const pts = sim.eigen;
+      const pos = pts.geometry.attributes.position;
+      const stable = pts.userData.stable;
+      const unstable = pts.userData.unstable;
+      const count = stable.length;
+      let index = 0;
+
+      for (let i = 0; i < count; i++) {
+        const u = (time * 0.055 + stable[i].offset) % 1.0;
+        const p = helix("stable", u, time);
+        pos.setXYZ(index++, p.x, p.y, p.z);
+      }
+      for (let i = 0; i < count; i++) {
+        const u = (time * 0.055 + unstable[i].offset + 0.2) % 1.0;
+        const p = helix("unstable", u, time);
+        pos.setXYZ(index++, p.x, p.y, p.z);
+      }
+      pos.needsUpdate = true;
+    }
+
+    // ========= MÖBIUS RIBBON =========
+    function setupMobius() {
+      const segU = 140;
+      const segV = 14;
+      const geom = new THREE.PlaneGeometry(1, 1, segU, segV);
+      geom.parameters.heightSegments = segU;
+      geom.parameters.widthSegments = segV;
+
+      const mat = new THREE.MeshPhongMaterial({
+        color: 0xfff7c2,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.3,
+        emissive: 0xfacc15,
+        emissiveIntensity: 0.7
+      });
+
+      const mesh = new THREE.Mesh(geom, mat);
+      scene.add(mesh);
+      sim.mobius = mesh;
+    }
+
+    function updateMobius(time) {
+      const mob = sim.mobius;
+      const geom = mob.geometry;
+      const pos = geom.attributes.position;
+      const segU = geom.parameters.heightSegments;
+      const segV = geom.parameters.widthSegments;
+      const width = 5.5;
+
+      let idx = 0;
+      for (let iu = 0; iu <= segU; iu++) {
+        const u = iu / segU;
+        const pS = helix("stable", u, time);
+        const pU = helix("unstable", u, time);
+        const center = pS.clone().add(pU).multiplyScalar(0.5);
+        const tangent = pU.clone().sub(pS).normalize();
+        const up = new THREE.Vector3(0, 1, 0);
+        let normal = up.clone().sub(tangent.clone().multiplyScalar(up.dot(tangent))).normalize();
+        const binorm = tangent.clone().cross(normal).normalize();
+        const twistAngle = Math.PI * u;
+
+        for (let iv = 0; iv <= segV; iv++) {
+          const v = iv / segV - 0.5;
+          const ct = Math.cos(twistAngle);
+          const st = Math.sin(twistAngle);
+          const twisted = normal.clone().multiplyScalar(ct).add(binorm.clone().multiplyScalar(st));
+          const offset = twisted.multiplyScalar(width * v);
+          const p = center.clone().add(offset);
+          pos.setXYZ(idx++, p.x, p.y, p.z);
+        }
+      }
+      pos.needsUpdate = true;
+      geom.computeVertexNormals();
+
+      const tCollapse = THREE.MathUtils.clamp(-HTM.recognitionDelta, 0, 1);
+      const hue = 0.12 + 0.12 * tCollapse;
+      const lightness = 0.45 + 0.25 * tCollapse;
+      mob.material.color.setHSL(hue, 1, lightness);
+      mob.material.emissiveIntensity = 0.5 + 1.0 * tCollapse;
+    }
+
+    // ========= ATTENTION LINKS =========
+    function setupLinks() {
+      const links = [];
+      const N = 64;
+      for (let k = 0; k < N; k++) {
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3));
+        const mat = new THREE.LineBasicMaterial({
+          color: 0xff8800,
+          transparent: true,
+          opacity: 0.0,
+          blending: THREE.AdditiveBlending
+        });
+        const mesh = new THREE.LineSegments(geom, mat);
+        scene.add(mesh);
+        links.push({
+          mesh,
+          i: Math.floor(Math.random() * GRID_SIZE),
+          j: Math.floor(Math.random() * GRID_SIZE)
+        });
+      }
+      sim.links = links;
+    }
+
+    function updateLinks(time) {
+      const links = sim.links;
+      const y0 = LAYER_SPACING * 1.2;
+      const y1 = LAYER_SPACING * (HTM.L - 2);
+
+      links.forEach((link, idx) => {
+        const mag = getAttentionMagnitude(link.i, link.j, time);
+        const sens = getJacobianSensitivity(link.i, link.j);
+        const phase = idx / links.length;
+        const baseR = 10 + mag * 18;
+        const ang = time * 0.6 + phase * 2 * Math.PI;
+
+        const s = new THREE.Vector3(
+          baseR * Math.cos(ang),
+          y0 + 4 * Math.sin(time * 0.6 + phase * 3.2),
+          baseR * Math.sin(ang)
+        );
+        const e = new THREE.Vector3(
+          baseR * Math.cos(ang + 0.5),
+          y1 + 6 * Math.cos(time * 0.4 + phase * 4.1),
+          baseR * Math.sin(ang + 0.5)
+        );
+        const mid = s.clone().lerp(e, 0.5);
+        mid.x += Math.sin(time * 20 + phase * 6.0) * sens * 2.4;
+
+        const p = link.mesh.geometry.attributes.position;
+        p.setXYZ(0, s.x, s.y, s.z);
+        p.setXYZ(1, mid.x, mid.y, mid.z);
+        p.setXYZ(2, mid.x, mid.y, mid.z);
+        p.setXYZ(3, e.x, e.y, e.z);
+        p.needsUpdate = true;
+
+        const hue = 0.07 + mag * 0.2;
+        const lightness = 0.35 + 0.35 * sens;
+        link.mesh.material.color.setHSL(hue, 1, lightness);
+        link.mesh.material.opacity = 0.12 + 0.7 * mag;
+      });
+    }
+
+    // ========= LAYERS & ENTROPY =========
+    function setupLayers() {
+      if (HTM.layers && HTM.layers.length) {
+        HTM.layers.forEach((layer) => {
+          scene.remove(layer.plane);
+          scene.remove(layer.flow);
+          scene.remove(layer.cloud);
+        });
+      }
+      HTM.layers = [];
+
+      for (let l = 0; l < HTM.L; l++) {
+        const yPos = l * LAYER_SPACING;
+
+        const planeGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE, 10, 10);
+        const planeMat = new THREE.MeshBasicMaterial({
+          color: 0x1d4ed8,
+          side: THREE.DoubleSide,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.14
+        });
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        plane.rotation.x = Math.PI / 2;
+        plane.position.y = yPos;
+        scene.add(plane);
+
+        const flowGeo = new THREE.BufferGeometry();
+        const N = 80;
+        const verts = new Float32Array(N * 3);
+        for (let i = 0; i < verts.length; i += 3) {
+          verts[i] = (Math.random() - 0.5) * GRID_SIZE;
+          verts[i + 1] = 0;
+          verts[i + 2] = (Math.random() - 0.5) * GRID_SIZE;
+        }
+        flowGeo.setAttribute("position", new THREE.BufferAttribute(verts, 3));
+        const flowMat = new THREE.PointsMaterial({
+          color: 0x22d3ee,
+          size: 0.6,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.9
+        });
+        const flow = new THREE.Points(flowGeo, flowMat);
+        flow.position.y = yPos;
+        scene.add(flow);
+
+        const cloudGeo = new THREE.BufferGeometry();
+        const C = 90;
+        const cVerts = new Float32Array(C * 3);
+        for (let i = 0; i < C; i++) {
+          const theta = Math.random() * 2 * Math.PI;
+          const r = 4 + Math.random() * 6;
+          const x = r * Math.cos(theta);
+          const z = r * Math.sin(theta);
+          const jitter = (Math.random() - 0.5) * 2.5;
+          cVerts[i * 3] = x;
+          cVerts[i * 3 + 1] = jitter;
+          cVerts[i * 3 + 2] = z;
+        }
+        cloudGeo.setAttribute("position", new THREE.BufferAttribute(cVerts, 3));
+        const cloudMat = new THREE.PointsMaterial({
+          color: 0x22c55e,
+          size: 0.8,
+          transparent: true,
+          opacity: 0.25,
+          blending: THREE.AdditiveBlending
+        });
+        const cloud = new THREE.Points(cloudGeo, cloudMat);
+        cloud.position.y = yPos;
+        scene.add(cloud);
+
+        HTM.layers.push({
+          plane,
+          flow,
+          cloud,
+          entropy: Math.random() * 2.0
+        });
+      }
+
+      document.getElementById("total-layers").textContent = HTM.L;
+      const slider = document.getElementById("layer-slider");
+      slider.max = Math.max(0, HTM.L - 1);
+      if (HTM.currentLayer >= HTM.L) HTM.currentLayer = HTM.L - 1;
+      slider.value = HTM.currentLayer;
+    }
+
+    function updateEntropy(time, dt) {
+      for (let l = 0; l < HTM.L; l++) {
+        const layer = HTM.layers[l];
+        layer.entropy += Math.sin(time * 0.35 + l * 0.85 + HTM.seed) * 0.012 * (1 + 0.2 * dt * 60);
+        layer.entropy = Math.max(0, Math.min(4.0, layer.entropy));
+      }
+      const c = HTM.currentLayer;
+      if (c < HTM.L - 1) {
+        HTM.recognitionDelta = HTM.layers[c + 1].entropy - HTM.layers[c].entropy;
+      } else {
+        HTM.recognitionDelta = 0;
+      }
+    }
+
+    function updateLayers(time) {
+      HTM.layers.forEach((layer, l) => {
+        const H = layer.entropy;
+        const norm = Math.min(1, H / 4.0);
+        const hue = 0.6 - norm * 0.6;
+        const light = 0.3 + 0.18 * norm;
+        layer.plane.material.color.setHSL(hue, 1, light);
+
+        const pos = layer.flow.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          let x = pos.getX(i);
+          let z = pos.getZ(i);
+          const w = 0.012 + 0.008 * l;
+          const cR = Math.cos(w);
+          const sR = Math.sin(w);
+          const nx = x * cR - z * sR + Math.cos(time * 0.45 + l + HTM.seed) * 0.14;
+          const nz = x * sR + z * cR + Math.sin(time * 0.45 + l * 1.2 + HTM.seed) * 0.14;
+          x = Math.max(-GRID_SIZE / 2, Math.min(GRID_SIZE / 2, nx));
+          z = Math.max(-GRID_SIZE / 2, Math.min(GRID_SIZE / 2, nz));
+          pos.setX(i, x);
+          pos.setZ(i, z);
+        }
+        pos.needsUpdate = true;
+
+        const cPos = layer.cloud.geometry.attributes.position;
+        const cavBoost = HTM.cavityEnabled ? 1.0 + 0.7 * Math.tanh(H) : 1.0;
+        const scale = 1.0 + 0.05 * Math.sin(time * 1.2 + l * 0.8) * cavBoost;
+        for (let i = 0; i < cPos.count; i++) {
+          const x0 = cPos.getX(i);
+          const y0 = cPos.getY(i);
+          const z0 = cPos.getZ(i);
+          cPos.setXYZ(i, x0 * scale, y0 * scale, z0 * scale);
+        }
+        cPos.needsUpdate = true;
+        layer.cloud.material.opacity = 0.18 + 0.14 * norm * (HTM.cavityEnabled ? 1.2 : 1.0);
+      });
+    }
+
+    // ========= UI SYNC & REGIME LABEL =========
+    function updateRegimeLabel() {
+      const mu = HTM.eigen.mu;
+      const epsS = HTM.eigen.epsStable;
+      const epsU = HTM.eigen.epsUnstable;
+
+      const lamS_abs = 1.0; // e^{iθ} unit magnitude
+      const lamU_abs = mu;
+
+      const label = document.getElementById("regime-label");
+      const lamLabel = document.getElementById("lambda-label");
+
+      let regime = "recognition";
+      let cls = "bg-emerald-900/60 text-emerald-300 mono";
+
+      if (lamU_abs > 1.3 || epsU > 0.07) {
+        regime = "hallucination";
+        cls = "bg-fuchsia-900/60 text-fuchsia-300 mono";
+      } else if (lamU_abs < 1.1 && epsU < 0.04 && epsS < 0.04) {
+        regime = "drift / sleep";
+        cls = "bg-indigo-900/60 text-indigo-300 mono";
+      } else if (Math.abs(HTM.recognitionDelta) < 0.1) {
+        regime = "critical / edge";
+        cls = "bg-amber-900/60 text-amber-300 mono";
+      }
+
+      label.textContent = "regime: " + regime;
+      label.className = "badge " + cls;
+      lamLabel.textContent = `|λᵤ|=${lamU_abs.toFixed(2)} · |λₛ|≈${lamS_abs.toFixed(2)}`;
+    }
+
+    function syncUI() {
+      const curr = HTM.currentLayer;
+      const layer = HTM.layers[curr];
+      document.getElementById("current-layer").textContent = curr + 1;
+      document.getElementById("total-layers").textContent = HTM.L;
+      document.getElementById("current-entropy").textContent = layer.entropy.toFixed(3);
+      document.getElementById("recognition-delta").textContent = HTM.recognitionDelta.toFixed(3);
+      const ev = document.getElementById("event-state");
+      ev.textContent = HTM.eventActive ? "collapse" : "idle";
+      ev.className = "mono " + (HTM.eventActive ? "text-red-400" : "text-slate-300");
+
+      document.getElementById("param-mu").value = HTM.eigen.mu.toFixed(2);
+      document.getElementById("param-eps-stable").value = HTM.eigen.epsStable.toFixed(3);
+      document.getElementById("param-eps-unstable").value = HTM.eigen.epsUnstable.toFixed(3);
+      document.getElementById("param-layers").value = HTM.L;
+      document.getElementById("param-cavity-amp").value = HTM.cavityAmp.toFixed(3);
+
+      const tSlider = document.getElementById("time-slider");
+      if (timeMode === "scrub") {
+      } else {
+        tSlider.value = (HTM.t % (2 * Math.PI)) / (2 * Math.PI);
+      }
+
+      updateRegimeLabel();
+    }
+
+    function updateCavityButton() {
+      const btn = document.getElementById("toggle-cavity");
+      if (!btn) return;
+      if (HTM.cavityEnabled) {
+        btn.textContent = "Cavity: on";
+        btn.className =
+          "w-full bg-emerald-800/90 hover:bg-emerald-700 text-emerald-50 font-semibold py-1.5 px-3 rounded-md text-[0.7rem] transition duration-150";
+      } else {
+        btn.textContent = "Cavity: off";
+        btn.className =
+          "w-full bg-slate-800/95 hover:bg-slate-700 text-slate-100 font-semibold py-1.5 px-3 rounded-md text-[0.7rem] transition duration-150";
+      }
+    }
+
+    // ========= PRESETS =========
+    function applyPresetRecognition() {
+      HTM.eigen.mu = 1.05;
+      HTM.eigen.epsStable = 0.04;
+      HTM.eigen.epsUnstable = 0.018;
+      HTM.eventActive = false;
+      HTM.cavityAmp = 0.018;
+      HTM.cavityEnabled = true;
+      HTM.seed = 1.234;
+      HTM.layers.forEach((layer, l) => {
+        const base = 1.0 + 0.1 * l;
+        layer.entropy = base + 0.05 * Math.sin(l * 0.7);
+      });
+      consoleLog("preset: recognition");
+    }
+
+    function applyPresetChaos() {
+      HTM.eigen.mu = 1.55;
+      HTM.eigen.epsStable = 0.06;
+      HTM.eigen.epsUnstable = 0.095;
+      HTM.eventActive = true;
+      HTM.cavityAmp = 0.05;
+      HTM.cavityEnabled = true;
+      HTM.seed = 4.2;
+      HTM.layers.forEach((layer, l) => {
+        const base = 2.0 + 0.8 * Math.sin(l * 1.2);
+        layer.entropy = Math.min(4.0, base + 0.4 * Math.random());
+      });
+      consoleLog("preset: chaos/hallucination");
+    }
+
+    function applyPresetDrift() {
+      HTM.eigen.mu = 1.12;
+      HTM.eigen.epsStable = 0.03;
+      HTM.eigen.epsUnstable = 0.028;
+      HTM.eventActive = false;
+      HTM.cavityAmp = 0.012;
+      HTM.cavityEnabled = true;
+      HTM.seed = 2.71;
+      HTM.layers.forEach((layer, l) => {
+        const base = 1.4 + 0.25 * Math.sin(l * 0.4);
+        layer.entropy = base + 0.1 * Math.random();
+      });
+      consoleLog("preset: noisy drift");
+    }
+
+    function applyPresetCavity() {
+      HTM.eigen.mu = 1.28;
+      HTM.eigen.epsStable = 0.045;
+      HTM.eigen.epsUnstable = 0.062;
+      HTM.eventActive = false;
+      HTM.cavityAmp = 0.08;
+      HTM.cavityEnabled = true;
+      HTM.seed = 3.14159;
+      HTM.layers.forEach((layer, l) => {
+        const base = 1.5 + 0.35 * Math.sin(l * 0.9);
+        layer.entropy = base + 0.15 * Math.sin(l * 1.7 + HTM.seed);
+      });
+      consoleLog("preset: photon cavity box");
+    }
+
+    function applyPresetSleep() {
+      HTM.eigen.mu = 1.02;
+      HTM.eigen.epsStable = 0.02;
+      HTM.eigen.epsUnstable = 0.018;
+      HTM.eventActive = false;
+      HTM.cavityAmp = 0.01;
+      HTM.cavityEnabled = true;
+      HTM.seed = 0.5;
+      HTM.layers.forEach((layer, l) => {
+        const base = 0.9 + 0.15 * Math.cos(l * 0.6);
+        layer.entropy = base + 0.05 * Math.sin(l * 0.4 + HTM.seed);
+      });
+      consoleLog("preset: sleep / off-duty");
+    }
+
+    function setPresetActive(id) {
+      ["preset-recognition", "preset-chaos", "preset-drift", "preset-cavity", "preset-sleep"].forEach((btnId) => {
+        const btn = document.getElementById(btnId);
+        btn.classList.remove("chip-btn-active");
+      });
+      if (id) {
+        const b = document.getElementById(id);
+        if (b) b.classList.add("chip-btn-active");
+      }
+    }
+
+    // ========= STATE I/O =========
+    function exportState() {
+      const state = {
+        L: HTM.L,
+        seed: HTM.seed,
+        eventActive: HTM.eventActive,
+        cavityEnabled: HTM.cavityEnabled,
+        cavityAmp: HTM.cavityAmp,
+        eigen: {
+          mu: HTM.eigen.mu,
+          epsStable: HTM.eigen.epsStable,
+          epsUnstable: HTM.eigen.epsUnstable
+        },
+        entropy: HTM.layers.map((l) => l.entropy)
+      };
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "htm_cavity_state_ordis_v5.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      consoleLog("state exported to htm_cavity_state_ordis_v5.json");
+    }
+
+    function importState() {
+      const text = prompt("Paste HTM state JSON here:");
+      if (!text) return;
+      try {
+        const state = JSON.parse(text);
+        if (!state || typeof state !== "object") throw new Error("bad json");
+        if (typeof state.L === "number" && state.L >= 4 && state.L <= 64) {
+          HTM.L = Math.floor(state.L);
+        }
+        if (typeof state.seed === "number") HTM.seed = state.seed;
+        if (typeof state.eventActive === "boolean") HTM.eventActive = state.eventActive;
+        if (typeof state.cavityEnabled === "boolean") HTM.cavityEnabled = state.cavityEnabled;
+        if (typeof state.cavityAmp === "number") HTM.cavityAmp = state.cavityAmp;
+        if (state.eigen) {
+          if (typeof state.eigen.mu === "number") HTM.eigen.mu = state.eigen.mu;
+          if (typeof state.eigen.epsStable === "number") HTM.eigen.epsStable = state.eigen.epsStable;
+          if (typeof state.eigen.epsUnstable === "number") HTM.eigen.epsUnstable = state.eigen.epsUnstable;
+        }
+        setupLayers();
+        if (Array.isArray(state.entropy)) {
+          for (let l = 0; l < HTM.L && l < state.entropy.length; l++) {
+            HTM.layers[l].entropy = Number(state.entropy[l]) || HTM.layers[l].entropy;
+          }
+        }
+        consoleLog("state imported");
+      } catch (err) {
+        alert("Invalid JSON state.");
+        consoleLog("failed to import state (invalid JSON)", "err");
+      }
+    }
+
+    function randomizeSeeds() {
+      HTM.seed = Math.random() * 10.0;
+      HTM.layers.forEach((layer) => {
+        layer.entropy = Math.random() * 2.5;
+      });
+    }
+
+    function snapshotPNG() {
+      try {
+        const dataURL = renderer.domElement.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = dataURL;
+        a.download = "htm_cavity_screenshot_ordis_v5.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        consoleLog("snapshot saved as htm_cavity_screenshot_ordis_v5.png");
+      } catch (e) {
+        consoleLog("snapshot failed: " + e.message, "err");
+      }
+    }
+
+    // ========= INIT & LOOP =========
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera.position.set(110, 130, 150);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.rotateSpeed = 0.65;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.6;
+      controls.screenSpacePanning = true;
+
+      clock = new THREE.Clock();
+
+      setupGlobalFrame();
+      setupEigenHelices();
+      setupMobius();
+      setupLinks();
+      setupLayers();
+
+      const slider = document.getElementById("layer-slider");
+      slider.addEventListener("input", (e) => {
+        HTM.currentLayer = parseInt(e.target.value || "0", 10);
+      });
+
+      const timeSlider = document.getElementById("time-slider");
+      timeSlider.addEventListener("input", (e) => {
+        if (timeMode === "scrub") {
+          const phase = parseFloat(e.target.value || "0");
+          HTM.t = phase * 2 * Math.PI;
+        }
+      });
+
+      document.getElementById("time-mode-btn").addEventListener("click", () => {
+        timeMode = timeMode === "live" ? "scrub" : "live";
+        if (timeMode === "scrub") {
+          consoleSetStatus("scrub", "bg-fuchsia-900/60 text-fuchsia-300");
+          document.getElementById("time-mode-btn").textContent = "scrub";
+        } else {
+          consoleSetStatus("live", "bg-sky-900/60 text-sky-300");
+          document.getElementById("time-mode-btn").textContent = "live";
+        }
+      });
+
+      document.getElementById("trigger-event").addEventListener("click", () => {
+        HTM.eventActive = !HTM.eventActive;
+        consoleLog(`attractor collapse ${HTM.eventActive ? "enabled" : "disabled"}`);
+      });
+
+      document.getElementById("toggle-cavity").addEventListener("click", () => {
+        HTM.cavityEnabled = !HTM.cavityEnabled;
+        updateCavityButton();
+        consoleLog(`cavity ${HTM.cavityEnabled ? "enabled" : "disabled"}`);
+      });
+
+      document.getElementById("preset-recognition").addEventListener("click", () => {
+        applyPresetRecognition();
+        setPresetActive("preset-recognition");
+      });
+      document.getElementById("preset-chaos").addEventListener("click", () => {
+        applyPresetChaos();
+        setPresetActive("preset-chaos");
+      });
+      document.getElementById("preset-drift").addEventListener("click", () => {
+        applyPresetDrift();
+        setPresetActive("preset-drift");
+      });
+      document.getElementById("preset-cavity").addEventListener("click", () => {
+        applyPresetCavity();
+        setPresetActive("preset-cavity");
+      });
+      document.getElementById("preset-sleep").addEventListener("click", () => {
+        applyPresetSleep();
+        setPresetActive("preset-sleep");
+      });
+
+      document.getElementById("btn-export").addEventListener("click", exportState);
+      document.getElementById("btn-import").addEventListener("click", importState);
+      document.getElementById("btn-randomize").addEventListener("click", () => {
+        randomizeSeeds();
+        setPresetActive("");
+        consoleLog("randomized entropy and seed");
+      });
+      document.getElementById("btn-freeze").addEventListener("click", () => {
+        paused = !paused;
+        if (paused) {
+          consoleSetStatus("paused", "bg-slate-900/60 text-slate-300");
+          consoleLog("simulation paused");
+        } else {
+          consoleSetStatus("live", "bg-sky-900/60 text-sky-300");
+          consoleLog("simulation resumed");
+        }
+      });
+      document.getElementById("btn-snapshot").addEventListener("click", snapshotPNG);
+
+      const hudBtn = document.getElementById("toggle-hud-btn");
+      const hudPanel = document.getElementById("hud-panel");
+      let hudHidden = false;
+      hudBtn.addEventListener("click", () => {
+        hudHidden = !hudHidden;
+        hudPanel.style.display = hudHidden ? "none" : "block";
+        hudBtn.textContent = hudHidden ? "Show HUD" : "Hide HUD";
+      });
+
+      const consoleBtn = document.getElementById("toggle-console-btn");
+      const consolePanel = document.getElementById("console-panel");
+      let consoleHidden = false;
+      consoleBtn.addEventListener("click", () => {
+        consoleHidden = !consoleHidden;
+        consolePanel.style.display = consoleHidden ? "none" : "block";
+        consoleBtn.textContent = consoleHidden ? "Show Console" : "Hide Console";
+      });
+
+      const consoleInput = document.getElementById("console-input");
+      const consoleSend = document.getElementById("console-send");
+      const consoleClear = document.getElementById("console-clear");
+      consoleSend.addEventListener("click", () => {
+        handleConsoleCommand(consoleInput.value);
+        consoleInput.value = "";
+      });
+      consoleInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          handleConsoleCommand(consoleInput.value);
+          consoleInput.value = "";
+        }
+      });
+      consoleClear.addEventListener("click", () => {
+        document.getElementById("console-log").innerHTML = "";
+      });
+
+      window.addEventListener("resize", onResize);
+
+      applyPresetRecognition();
+      setPresetActive("preset-recognition");
+      updateCavityButton();
+      consoleLog("HTM Cavity Lab v5 ready — type 'help' in the console");
+      animate();
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = (clock && clock.getElapsedTime()) || 0;
+      const dt = elapsed - lastFrameTime;
+      lastFrameTime = elapsed;
+
+      if (!paused) {
+        if (timeMode === "live") {
+          HTM.t += dt * 1.0;
+        }
+      }
+
+      const time = HTM.t;
+
+      updateEntropy(time, dt);
+      updateGlobalFrame(time);
+      updateEigenHelices(time, dt);
+      updateMobius(time);
+      updateLinks(time);
+      updateLayers(time);
+      syncUI();
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
